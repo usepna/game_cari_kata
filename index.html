@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#faf8f2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Cari Kata — Buku Tulis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
@@ -139,6 +142,23 @@
     text-decoration-color:rgba(59,59,63,.6);
   }
 
+  /* ---------- Splash pembuka (pemicu fullscreen) ---------- */
+  .splash{
+    position:fixed;inset:0;z-index:100;
+    background:var(--paper-deep);
+    background-image:
+      linear-gradient(90deg, transparent 44px, var(--margin-red) 44px, var(--margin-red) 46px, transparent 46px),
+      repeating-linear-gradient(var(--paper) , var(--paper) 35px, var(--line) 35px, var(--line) 36.5px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    text-align:center;padding:24px;
+    transition:opacity .35s;
+  }
+  .splash.hide{opacity:0;pointer-events:none}
+  .splash .logo{font-family:'Caveat',cursive;font-weight:700;font-size:clamp(50px,14vw,72px);line-height:1}
+  .splash .tag{font-size:20px;color:var(--pencil-soft)}
+  .splash .chip{font-size:22px;padding:10px 26px}
+  .splash .hint{font-size:14px;color:var(--pencil-soft);opacity:.8;margin-top:6px}
+
   /* ---------- Win overlay ---------- */
   .win{
     position:fixed;inset:0;background:rgba(40,35,20,.45);
@@ -160,6 +180,13 @@
 </head>
 <body>
 
+<div class="splash" id="splash">
+  <div class="logo">Cari Kata ✏️</div>
+  <div class="tag">Geser hurufnya, lingkari katanya!</div>
+  <button class="chip action" id="btnStart">Mulai Main ▶</button>
+  <div class="hint">Game akan terbuka dalam layar penuh</div>
+</div>
+
 <header>
   <h1><span class="under">Cari Kata</span> ✏️</h1>
   <div class="sub">Geser hurufnya, lingkari katanya!</div>
@@ -170,6 +197,7 @@
   <button class="chip" data-lv="1">Sedang</button>
   <button class="chip" data-lv="2">Sulit</button>
   <button class="chip action" id="btnNew">Acak Ulang 🔄</button>
+  <button class="chip" id="btnFs" title="Layar penuh">⛶</button>
   <div class="timer" id="timer">0:00</div>
 </div>
 
@@ -442,6 +470,57 @@
   document.getElementById('btnAgain').addEventListener('click', ()=>{
     $win.classList.remove('show'); build();
   });
+
+  // ====== Layar penuh ======
+  const $splash = document.getElementById('splash');
+  const $btnFs  = document.getElementById('btnFs');
+
+  function goFullscreen(){
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen
+             || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if(req){
+      const p = req.call(el, {navigationUI:'hide'});
+      if(p && p.catch) p.catch(()=>{});
+    }
+    // kunci orientasi potret di HP (abaikan jika tidak didukung)
+    if(screen.orientation && screen.orientation.lock){
+      screen.orientation.lock('portrait').catch(()=>{});
+    }
+  }
+  function exitFullscreen(){
+    const ex = document.exitFullscreen || document.webkitExitFullscreen
+            || document.mozCancelFullScreen || document.msExitFullscreen;
+    if(ex) ex.call(document);
+  }
+  function isFullscreen(){
+    return !!(document.fullscreenElement || document.webkitFullscreenElement
+           || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+
+  // splash = sentuhan pertama yang memicu fullscreen otomatis
+  document.getElementById('btnStart').addEventListener('click', ()=>{
+    goFullscreen();
+    $splash.classList.add('hide');
+    setTimeout(()=>$splash.remove(), 400);
+  });
+
+  // jaring pengaman: kalau belum fullscreen, interaksi pertama di mana pun memicunya
+  const firstTouch = ()=>{
+    if(!isFullscreen()) goFullscreen();
+    document.removeEventListener('pointerdown', firstTouch);
+  };
+  document.addEventListener('pointerdown', firstTouch);
+
+  // tombol toggle di toolbar
+  $btnFs.addEventListener('click', e=>{
+    e.stopPropagation();
+    isFullscreen() ? exitFullscreen() : goFullscreen();
+  });
+  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>
+    document.addEventListener(ev, ()=>{ $btnFs.textContent = isFullscreen() ? '🗗' : '⛶'; })
+  );
+
   window.addEventListener('resize', ()=>{ /* jaga ukuran sel */ 
     const avail = Math.min(window.innerWidth - 44, 520);
     const cell = Math.max(24, Math.min(40, Math.floor(avail / N)));
